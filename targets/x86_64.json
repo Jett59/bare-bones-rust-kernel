@@ -19,7 +19,6 @@
     },
     "post-link-args": {
         "gcc": [
-            "-lgcc",
             "-Lasm-code",
             "-lasm-x86_64"
         ]
