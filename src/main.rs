@@ -17,17 +17,5 @@ fn kpanic(_info: &PanicInfo) -> ! {
 extern "C" fn kmain() -> ! {
     arch_api::console::clear();
     arch_api::console::write_string("Hello, World!");
-    unsafe {
-        // Print whether we are in the higher half.
-        let mut address: usize;
-        // We can lea using rip-relative addressing.
-        // Also use the att_syntax feature to get the syntax we want.
-        core::arch::asm!("lea 0(%rip), {}", out(reg) address, options(att_syntax));
-        if address > 0xffff800000000000 {
-            arch_api::console::write_string("We are in the higher half!");
-        } else {
-            arch_api::console::write_string("We are in the lower half!");
-        }
-    }
     loop {}
 }
