@@ -1,7 +1,7 @@
 SOURCES=$(wildcard $(ARCH)/**/*.S $(ARCH)/*.S)
 OBJECTS=$(SOURCES:.S=.o)
 
-AS=$(ARCH)-elf-gcc
+AS=clang -target $(ARCH)-unknown-elf
 ASFLAGS=-g
 
 libasm-$(ARCH).a: ../.config $(OBJECTS) Makefile

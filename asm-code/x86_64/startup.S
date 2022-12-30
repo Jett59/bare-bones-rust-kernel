@@ -18,16 +18,20 @@ multiboot_header:
 .long 8 /*Size*/
 multiboot_header_end:
 
-.text
+.section .bootstrap.text, "ax", @progbits
 .globl _start
 _start:
-mov %ebx, mbi_pointer
+/*we must not trash ebx since it holds the mbi pointer*/
+
+/*page tables:*/
 mov $pml3, %eax
 or $3, %eax
 mov %eax, pml4
+
 mov $pml2, %eax
 or $3, %eax
 mov %eax, pml3
+
 /* Use huge page tables to make this easier */
 mov $0x83, %eax
 mov $512, %ecx
@@ -37,9 +41,19 @@ add $0x200000, %eax
 add $8, %edi
 dec %ecx
 jnz 1b
+
+/*it's a bit of a hack, but since our virtual address starts in the last two gigabytes, the simplest way (that I can think of) to make this work is to add a new entry in the pml4 which points back to the same pml3, then set the second-last pml3 entry to point to the pml2.*/
+mov $pml3, %eax
+or $3, %eax
+mov %eax, pml4 + (4096 - 8)
+mov $pml2, %eax
+or $3, %eax
+mov %eax, pml3 + (4096 - 16)
+
 mov $pml4, %eax
 mov %eax, %cr3
 
+/*now the three-step long mode transition*/
 movl %cr4, %eax
 orl $(1 << 5), %eax
 movl %eax, %cr4
@@ -53,19 +67,24 @@ movl %cr0, %eax
 orl $(1 << 31), %eax
 movl %eax, %cr0
 
-lgdt gdt_pointer
+lgdt low_gdt_pointer
 jmp $8, $_start64
 
 .code64
 _start64:
-lea gdt(%rip), %rax
+lea high_gdt_pointer(%rip), %rax
 lgdt (%rax)
 lea stack_end(%rip), %rsp
 call kmain
 1: jmp 1b
 
+.section .bootstrap.data, "aw", @progbits
+low_gdt_pointer:
+.word gdt_end - gdt - 1
+.quad gdt - /*KERNEL_VIRTUAL_OFFSET*/ 0xffffffff80000000
+
 .data
-gdt_pointer:
+high_gdt_pointer:
 .word gdt_end - gdt - 1
 .quad gdt
 
@@ -79,7 +98,7 @@ gdt:
 .quad GDT_PRESENT | GDT_LONG | GDT_NOT_SYSTEM | GDT_EXECUTABLE /*Kernel code segment*/
 gdt_end:
 
-.bss
+.section .bootstrap.bss, "aw", @nobits
 .align 4096
 pml4:
 .fill 4096
@@ -88,6 +107,7 @@ pml3:
 pml2:
 .fill 4096
 
+.bss
 stack:
 .fill 8192
 stack_end:
